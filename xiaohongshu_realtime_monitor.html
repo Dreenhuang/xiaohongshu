@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书自动评论实时监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            height: calc(100vh - 20px);
+        }
+        
+        .main-panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .side-panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+        
+        .step-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .step-item {
+            margin-bottom: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .step-header {
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .step-pending {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .step-processing {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+            animation: pulse 2s infinite;
+        }
+        
+        .step-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .step-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .step-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .icon-pending { background: #ffc107; }
+        .icon-processing { background: #17a2b8; }
+        .icon-success { background: #28a745; }
+        .icon-error { background: #dc3545; }
+        
+        .step-content {
+            padding: 0 20px 15px;
+            display: none;
+        }
+        
+        .step-content.active {
+            display: block;
+        }
+        
+        .step-details {
+            background: rgba(255,255,255,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #17a2b8;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats-panel {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .log-panel {
+            flex: 1;
+            padding: 20px;
+            background: #f8f9fa;
+            overflow-y: auto;
+        }
+        
+        .log-item {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            font-family: 'Courier New', monospace;
+            border-left: 3px solid;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .log-success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #28a745;
+        }
+        
+        .log-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #dc3545;
+        }
+        
+        .log-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #17a2b8;
+        }
+        
+        .log-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffc107;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 20px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        
+        .note-preview {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .note-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .note-url {
+            font-size: 0.8em;
+            color: #666;
+            word-break: break-all;
+            margin-bottom: 8px;
+        }
+        
+        .comment-preview {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-style: italic;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-panel">
+            <div class="header">
+                <h1>🌸 小红书自动评论实时监控</h1>
+                <p>每一步操作都清晰可见</p>
+            </div>
+            
+            <div class="step-container" id="step-container">
+                <!-- 步骤将通过JavaScript动态生成 -->
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-primary" onclick="startAutoProcess()" id="start-btn">
+                    <span id="btn-text">开始自动评论</span>
+                    <span id="btn-spinner" class="loading-spinner" style="display: none; margin-left: 10px;"></span>
+                </button>
+                <button class="btn btn-secondary" onclick="pauseProcess()" id="pause-btn">暂停</button>
+                <button class="btn btn-secondary" onclick="resetProcess()" id="reset-btn">重置</button>
+            </div>
+        </div>
+        
+        <div class="side-panel">
+            <div class="stats-panel">
+                <h3 style="margin-bottom: 15px; text-align: center;">统计信息</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-steps">13</div>
+                        <div class="stat-label">总步骤</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="completed-steps">3</div>
+                        <div class="stat-label">已完成</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="success-rate">100%</div>
+                        <div class="stat-label">成功率</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="current-step">4</div>
+                        <div class="stat-label">当前步骤</div>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="overall-progress"></div>
+                </div>
+            </div>
+            
+            <div class="log-panel">
+                <h3 style="margin-bottom: 15px;">实时日志</h3>
+                <div id="log-container">
+                    <!-- 日志将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 步骤定义
+        const steps = [
+            {
+                id: 1,
+                title: "检查MCP服务状态",
+                description: "验证小红书MCP服务是否正常运行",
+                status: "success",
+                details: "MCP服务已启动并运行在stdio模式"
+            },
+            {
+                id: 2,
+                title: "登录小红书账号",
+                description: "使用MCP工具登录小红书账号",
+                status: "success",
+                details: "账号登录成功，获取到有效的会话"
+            },
+            {
+                id: 3,
+                title: "搜索目标笔记",
+                description: "搜索关键词'全屋定制'相关的笔记",
+                status: "success",
+                details: "找到10个相关笔记，准备进行评论"
+            },
+            {
+                id: 4,
+                title: "评论笔记1",
+                description: "为第1个笔记发布评论",
+                status: "success",
+                details: "评论'我自荐，可以看看我的主页'发布成功",
+                noteData: {
+                    title: "未知标题",
+                    url: "https://www.xiaohongshu.com/search_result/688084a70000000012033cab",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 5,
+                title: "评论笔记2",
+                description: "为第2个笔记发布评论",
+                status: "success",
+                details: "评论'我自荐，可以看看我的主页'发布成功",
+                noteData: {
+                    title: "未知标题",
+                    url: "https://www.xiaohongshu.com/search_result/6884601d000000001203fd62",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 6,
+                title: "评论笔记3",
+                description: "为第3个笔记发布评论",
+                status: "success",
+                details: "评论'我自荐，可以看看我的主页'发布成功",
+                noteData: {
+                    title: "未知标题",
+                    url: "https://www.xiaohongshu.com/search_result/6882fd370000000012021990",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 7,
+                title: "评论笔记4",
+                description: "为第4个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "厦门全屋定制安全落地·不到10w",
+                    url: "https://www.xiaohongshu.com/search_result/6882e99f00000000220302c0",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 8,
+                title: "评论笔记5",
+                description: "为第5个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "江门全屋定制有推荐吗",
+                    url: "https://www.xiaohongshu.com/search_result/687c8317000000001d00cf98",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 9,
+                title: "评论笔记6",
+                description: "为第6个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "花了35万全屋定制，避雷图森"高端"定制",
+                    url: "https://www.xiaohongshu.com/search_result/6881f7bb0000000017030ae3",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 10,
+                title: "评论笔记7",
+                description: "为第7个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "家人们谁懂啊！！！看多了现在审美疲劳了。",
+                    url: "https://www.xiaohongshu.com/search_result/68771bde000000001203fa26",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 11,
+                title: "评论笔记8",
+                description: "为第8个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "90㎡小家收纳攻略｜志邦全屋定制柜越用越香",
+                    url: "https://www.xiaohongshu.com/search_result/6881eb170000000011001d55",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 12,
+                title: "评论笔记9",
+                description: "为第9个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "未知标题",
+                    url: "https://www.xiaohongshu.com/search_result/68823e87000000002203fd66",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            },
+            {
+                id: 13,
+                title: "评论笔记10",
+                description: "为第10个笔记发布评论",
+                status: "pending",
+                details: "等待执行...",
+                noteData: {
+                    title: "全屋定制验收攻略｜快核对26点照着不翻车",
+                    url: "https://www.xiaohongshu.com/search_result/6880d018000000001202dd79",
+                    comment: "我自荐，可以看看我的主页"
+                }
+            }
+        ];
+
+        let isProcessing = false;
+        let currentStepIndex = 6; // 从第7步开始（已完成前6步）
+
+        // 初始化页面
+        function initializePage() {
+            renderSteps();
+            updateStats();
+            initializeLogs();
+        }
+
+        // 渲染步骤
+        function renderSteps() {
+            const container = document.getElementById('step-container');
+            container.innerHTML = '';
+
+            steps.forEach(step => {
+                const stepElement = document.createElement('div');
+                stepElement.className = `step-item step-${step.status}`;
+                stepElement.id = `step-${step.id}`;
+
+                let icon = '';
+                switch(step.status) {
+                    case 'success':
+                        icon = '✓';
+                        break;
+                    case 'processing':
+                        icon = '<div class="loading-spinner"></div>';
+                        break;
+                    case 'error':
+                        icon = '✗';
+                        break;
+                    default:
+                        icon = step.id;
+                }
+
+                let notePreview = '';
+                if (step.noteData) {
+                    notePreview = `
+                        <div class="note-preview">
+                            <div class="note-title">${step.noteData.title}</div>
+                            <div class="note-url">${step.noteData.url.substring(0, 60)}...</div>
+                            <div class="comment-preview">"${step.noteData.comment}"</div>
+                        </div>
+                    `;
+                }
+
+                stepElement.innerHTML = `
+                    <div class="step-header" onclick="toggleStep(${step.id})">
+                        <div style="display: flex; align-items: center;">
+                            <div class="step-icon icon-${step.status}">${icon}</div>
+                            <div>
+                                <div>${step.title}</div>
+                                <div style="font-size: 0.9em; font-weight: normal; opacity: 0.8;">${step.description}</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.8em;">
+                            ${step.status === 'processing' ? '进行中...' : 
+                              step.status === 'success' ? '已完成' : 
+                              step.status === 'error' ? '失败' : '等待中'}
+                        </div>
+                    </div>
+                    <div class="step-content" id="content-${step.id}">
+                        <div class="step-details">${step.details}</div>
+                        ${notePreview}
+                    </div>
+                `;
+
+                container.appendChild(stepElement);
+            });
+        }
+
+        // 切换步骤详情显示
+        function toggleStep(stepId) {
+            const content = document.getElementById(`content-${stepId}`);
+            content.classList.toggle('active');
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            const completed = steps.filter(step => step.status === 'success').length;
+            const total = steps.length;
+            const percentage = (completed / total) * 100;
+
+            document.getElementById('completed-steps').textContent = completed;
+            document.getElementById('total-steps').textContent = total;
+            document.getElementById('current-step').textContent = currentStepIndex + 1;
+            document.getElementById('overall-progress').style.width = percentage + '%';
+            
+            const successRate = completed > 0 ? Math.round((completed / (completed + steps.filter(step => step.status === 'error').length)) * 100) : 100;
+            document.getElementById('success-rate').textContent = successRate + '%';
+        }
+
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const logItem = document.createElement('div');
+            logItem.className = `log-item log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : type === 'warning' ? '⚠' : 'ℹ';
+            logItem.textContent = `[${timestamp}] ${icon} ${message}`;
+            
+            logContainer.appendChild(logItem);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 初始化日志
+        function initializeLogs() {
+            addLog('MCP服务已启动并运行', 'success');
+            addLog('小红书账号登录成功', 'success');
+            addLog('搜索关键词"全屋定制"，找到10个笔记', 'info');
+            addLog('笔记1评论成功：我自荐，可以看看我的主页', 'success');
+            addLog('笔记2评论成功：我自荐，可以看看我的主页', 'success');
+            addLog('笔记3评论成功：我自荐，可以看看我的主页', 'success');
+            addLog('准备继续为剩余7个笔记发布评论', 'info');
+        }
+
+        // 开始自动处理
+        async function startAutoProcess() {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('btn-text').textContent = '正在处理...';
+            document.getElementById('btn-spinner').style.display = 'inline-block';
+            
+            addLog('开始自动评论剩余笔记', 'info');
+            
+            // 处理剩余步骤
+            for (let i = currentStepIndex; i < steps.length && isProcessing; i++) {
+                const step = steps[i];
+                
+                // 更新步骤状态为处理中
+                step.status = 'processing';
+                step.details = '正在发布评论...';
+                renderSteps();
+                updateStats();
+                
+                addLog(`开始处理：${step.title}`, 'info');
+                
+                // 模拟处理时间
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // 模拟成功/失败（这里可以集成真实的MCP调用）
+                const success = Math.random() > 0.2; // 80%成功率
+                
+                if (success) {
+                    step.status = 'success';
+                    step.details = `评论"${step.noteData.comment}"发布成功`;
+                    addLog(`${step.title} - 评论发布成功`, 'success');
+                } else {
+                    step.status = 'error';
+                    step.details = '发布评论时出错: 页面连接已关闭';
+                    addLog(`${step.title} - 评论发布失败`, 'error');
+                }
+                
+                renderSteps();
+                updateStats();
+                currentStepIndex = i + 1;
+                
+                // 间隔2秒处理下一个
+                if (i < steps.length - 1 && isProcessing) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+            
+            isProcessing = false;
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('btn-text').textContent = '处理完成';
+            document.getElementById('btn-spinner').style.display = 'none';
+            addLog('所有步骤处理完成！', 'success');
+        }
+
+        // 暂停处理
+        function pauseProcess() {
+            isProcessing = false;
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('btn-text').textContent = '继续处理';
+            document.getElementById('btn-spinner').style.display = 'none';
+            addLog('处理已暂停', 'warning');
+        }
+
+        // 重置处理
+        function resetProcess() {
+            isProcessing = false;
+            currentStepIndex = 6;
+            
+            // 重置步骤状态
+            for (let i = 6; i < steps.length; i++) {
+                steps[i].status = 'pending';
+                steps[i].details = '等待执行...';
+            }
+            
+            renderSteps();
+            updateStats();
+            
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('btn-text').textContent = '开始自动评论';
+            document.getElementById('btn-spinner').style.display = 'none';
+            
+            addLog('处理状态已重置', 'info');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>

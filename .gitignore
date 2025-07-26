@@ -1,0 +1,61 @@
+# 浏览器数据目录
+*browser_data/
+dynamic_browser_data/
+smart_browser_data/
+stable_browser_data/
+ultimate_browser_data/
+
+# Python虚拟环境
+venv/
+venvvenv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# 日志文件
+*.log
+logs/
+
+# 配置文件中的敏感信息
+config.json
+settings.json
+secrets.json

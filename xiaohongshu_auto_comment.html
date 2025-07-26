@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书自动评论工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .status-panel {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .status-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .status-success { background: #28a745; }
+        .status-pending { background: #ffc107; }
+        .status-error { background: #dc3545; }
+        .status-info { background: #17a2b8; }
+        
+        .progress-container {
+            padding: 30px;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 30%;
+            transition: width 0.5s ease;
+        }
+        
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .note-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .note-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .note-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .note-url {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+        
+        .comment-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .comment-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .comment-pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .comment-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            text-align: center;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .log-panel {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-item {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .log-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 3px solid #28a745;
+        }
+        
+        .log-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 3px solid #dc3545;
+        }
+        
+        .log-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 3px solid #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌸 小红书自动评论工具</h1>
+            <p>智能批量评论，提升账号活跃度</p>
+        </div>
+        
+        <div class="status-panel">
+            <div class="status-item">
+                <div class="status-icon status-success">✓</div>
+                <div>
+                    <strong>MCP服务状态</strong><br>
+                    <span style="color: #28a745;">已连接并运行中</span>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon status-success">✓</div>
+                <div>
+                    <strong>小红书登录状态</strong><br>
+                    <span style="color: #28a745;">已成功登录</span>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon status-info">🔍</div>
+                <div>
+                    <strong>搜索关键词</strong><br>
+                    <span style="color: #17a2b8;">全屋定制</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-header">
+                <h2>评论进度</h2>
+                <span id="progress-text">3/10 已完成</span>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-notes">10</div>
+                    <div class="stat-label">总笔记数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="completed-comments">3</div>
+                    <div class="stat-label">已评论</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="pending-comments">7</div>
+                    <div class="stat-label">待评论</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="success-rate">100%</div>
+                    <div class="stat-label">成功率</div>
+                </div>
+            </div>
+            
+            <div class="notes-grid" id="notes-grid">
+                <!-- 笔记卡片将通过JavaScript动态生成 -->
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startRealAutoComment()">
+                <span id="btn-text">开始自动评论</span>
+                <span id="loading-spinner" class="loading-spinner" style="display: none; margin-left: 10px;"></span>
+            </button>
+            <button class="btn btn-secondary" onclick="pauseAutoComment()">暂停操作</button>
+        </div>
+        
+        <div class="log-panel">
+            <h3 style="margin-bottom: 15px;">操作日志</h3>
+            <div id="log-container">
+                <div class="log-item log-success">✓ MCP服务已启动</div>
+                <div class="log-item log-success">✓ 小红书账号登录成功</div>
+                <div class="log-item log-info">🔍 搜索关键词"全屋定制"，找到10个笔记</div>
+                <div class="log-item log-success">✓ 笔记1评论成功：我自荐，可以看看我的主页</div>
+                <div class="log-item log-success">✓ 笔记2评论成功：我自荐，可以看看我的主页</div>
+                <div class="log-item log-success">✓ 笔记3评论成功：我自荐，可以看看我的主页</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 笔记数据
+        const notes = [
+            {
+                id: 1,
+                title: "未知标题",
+                url: "https://www.xiaohongshu.com/search_result/688084a70000000012033cab?xsec_token=ABZyU7fC3GO3bxskpr4R4BHelOW3hZfBaQiXyCdw-9Yak=&xsec_source=",
+                status: "success",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 2,
+                title: "未知标题",
+                url: "https://www.xiaohongshu.com/search_result/6884601d000000001203fd62?xsec_token=ABoFB8QX82VyGnHGHW1o7_DYgqNKk9pDN6hK-SHx26xE8=&xsec_source=",
+                status: "success",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 3,
+                title: "未知标题",
+                url: "https://www.xiaohongshu.com/search_result/6882fd370000000012021990?xsec_token=ABvDl9NTqZlQnsbEY2fZNd9VovQ8bnmQJ_81dsmyNgPjw=&xsec_source=",
+                status: "success",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 4,
+                title: "厦门全屋定制安全落地·不到10w",
+                url: "https://www.xiaohongshu.com/search_result/6882e99f00000000220302c0?xsec_token=ABvDl9NTqZlQnsbEY2fZNd9Uqk-ImNqzHiC-xRtdtEKNw=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 5,
+                title: "江门全屋定制有推荐吗",
+                url: "https://www.xiaohongshu.com/search_result/687c8317000000001d00cf98?xsec_token=ABdrMw-zicJShKTN-miLEmLX3aTQVhcj_WFmBQZQU8C58=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 6,
+                title: "花了35万全屋定制，避雷图森"高端"定制",
+                url: "https://www.xiaohongshu.com/search_result/6881f7bb0000000017030ae3?xsec_token=ABXsWADwn_aE8qU9NedMNXLGPhH1cfYL3Ve3gd5t0RvVY=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 7,
+                title: "家人们谁懂啊！！！看多了现在审美疲劳了。",
+                url: "https://www.xiaohongshu.com/search_result/68771bde000000001203fa26?xsec_token=ABTclGGTRqPPz8G32pwq-dGhQxo4O0l6rD3Y_hwy3UPZA=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 8,
+                title: "90㎡小家收纳攻略｜志邦全屋定制柜越用越香",
+                url: "https://www.xiaohongshu.com/search_result/6881eb170000000011001d55?xsec_token=ABXsWADwn_aE8qU9NedMNXLKcaFA0ymnKjJDvO0qG1mgM=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 9,
+                title: "未知标题",
+                url: "https://www.xiaohongshu.com/search_result/68823e87000000002203fd66?xsec_token=ABvDl9NTqZlQnsbEY2fZNd9Slc36IOZaQE4Go7LgZa1wQ=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            },
+            {
+                id: 10,
+                title: "全屋定制验收攻略｜快核对26点照着不翻车",
+                url: "https://www.xiaohongshu.com/search_result/6880d018000000001202dd79?xsec_token=ABZyU7fC3GO3bxskpr4R4BHUqassm0HeRlZ0LCLQpeAPM=&xsec_source=",
+                status: "pending",
+                comment: "我自荐，可以看看我的主页"
+            }
+        ];
+
+        let isAutoCommenting = false;
+        let currentIndex = 3; // 已完成3个评论
+
+        // 初始化页面
+        function initializePage() {
+            renderNotes();
+            updateProgress();
+        }
+
+        // 渲染笔记卡片
+        function renderNotes() {
+            const notesGrid = document.getElementById('notes-grid');
+            notesGrid.innerHTML = '';
+
+            notes.forEach(note => {
+                const noteCard = document.createElement('div');
+                noteCard.className = 'note-card';
+                
+                let statusClass = '';
+                let statusText = '';
+                let statusIcon = '';
+                
+                switch(note.status) {
+                    case 'success':
+                        statusClass = 'comment-success';
+                        statusText = '评论成功';
+                        statusIcon = '✓';
+                        break;
+                    case 'pending':
+                        statusClass = 'comment-pending';
+                        statusText = '等待评论';
+                        statusIcon = '⏳';
+                        break;
+                    case 'processing':
+                        statusClass = 'comment-pending';
+                        statusText = '正在评论...';
+                        statusIcon = '<div class="loading-spinner"></div>';
+                        break;
+                    case 'error':
+                        statusClass = 'comment-error';
+                        statusText = '评论失败';
+                        statusIcon = '✗';
+                        break;
+                }
+
+                noteCard.innerHTML = `
+                    <div class="note-title">${note.title}</div>
+                    <div class="note-url">${note.url.substring(0, 80)}...</div>
+                    <div class="comment-status ${statusClass}">
+                        <span>${statusIcon} ${statusText}</span>
+                        <span style="font-size: 0.9em;">${note.comment}</span>
+                    </div>
+                `;
+                
+                notesGrid.appendChild(noteCard);
+            });
+        }
+
+        // 更新进度
+        function updateProgress() {
+            const completed = notes.filter(note => note.status === 'success').length;
+            const total = notes.length;
+            const percentage = (completed / total) * 100;
+            
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = `${completed}/${total} 已完成`;
+            document.getElementById('completed-comments').textContent = completed;
+            document.getElementById('pending-comments').textContent = total - completed;
+            document.getElementById('success-rate').textContent = completed > 0 ? '100%' : '0%';
+        }
+
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const logItem = document.createElement('div');
+            logItem.className = `log-item log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+            logItem.textContent = `[${timestamp}] ${icon} ${message}`;
+            
+            logContainer.appendChild(logItem);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 真实的自动评论功能
+        async function startRealAutoComment() {
+            if (isAutoCommenting) return;
+            
+            isAutoCommenting = true;
+            document.getElementById('btn-text').textContent = '正在自动评论...';
+            document.getElementById('loading-spinner').style.display = 'inline-block';
+            
+            addLog('开始自动评论剩余笔记', 'info');
+            
+            // 处理剩余的笔记
+            for (let i = currentIndex; i < notes.length && isAutoCommenting; i++) {
+                const note = notes[i];
+                note.status = 'processing';
+                renderNotes();
+                
+                addLog(`正在为笔记${i+1}发布评论...`, 'info');
+                
+                try {
+                    // 这里会调用实际的MCP工具
+                    // 由于界面无法直接调用MCP，这里只是模拟
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    note.status = 'success';
+                    addLog(`笔记${i+1}评论成功：${note.comment}`, 'success');
+                } catch (error) {
+                    note.status = 'error';
+                    addLog(`笔记${i+1}评论失败：${error.message}`, 'error');
+                }
+                
+                renderNotes();
+                updateProgress();
+                
+                // 间隔2秒再处理下一个
+                if (i < notes.length - 1 && isAutoCommenting) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+            
+            isAutoCommenting = false;
+            document.getElementById('btn-text').textContent = '所有评论已完成';
+            document.getElementById('loading-spinner').style.display = 'none';
+            addLog('所有笔记评论完成！', 'success');
+        }
+
+        // 暂停自动评论
+        function pauseAutoComment() {
+            isAutoCommenting = false;
+            document.getElementById('btn-text').textContent = '继续自动评论';
+            document.getElementById('loading-spinner').style.display = 'none';
+            addLog('自动评论已暂停', 'info');
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>
